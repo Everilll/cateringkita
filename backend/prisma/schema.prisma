@@ -19,6 +19,16 @@ enum Role {
   ADMIN
 }
 
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
 enum OrderStatus {
   PENDING
   CONFIRMED
@@ -41,18 +51,36 @@ enum MenuCategory {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  role      Role
-  name      String
-  email     String   @unique
-  password  String
-  phone     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String       @id @default(cuid())
+  role            Role // ADMIN is created via prisma/seed.ts, not through /auth/register
+  name            String
+  email           String       @unique
+  password        String? // nullable: users registering via Google do not have a password
+  phone           String
+  authProvider    AuthProvider @default(EMAIL)
+  googleId        String?      @unique
+  isEmailVerified Boolean      @default(false) // automatically true for Google accounts (email is pre-verified)
+  preferredCity   String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   vendorProfile    VendorProfile?
   ordersAsCustomer Order[]        @relation("CustomerOrders")
   ratingsGiven     Rating[]       @relation("CustomerRatings")
+  otpCodes         OtpCode[]
+}
+
+model OtpCode {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  code       String
+  purpose    OtpPurpose
+  expiresAt  DateTime
+  consumedAt DateTime?
+
+  createdAt DateTime @default(now())
 }
 
 model VendorProfile {
@@ -61,6 +89,7 @@ model VendorProfile {
   user   User   @relation(fields: [userId], references: [id])
 
   businessName String
+  city         String
   area         String
   waNumber     String
   bannerPhoto  String?
@@ -78,7 +107,7 @@ model VendorProfile {
   orders    Order[]    @relation("VendorOrders")
   ratings   Rating[]   @relation("VendorRatings")
 
-  // computed di level aplikasi (bukan kolom DB):
+  // computed in application level (not DB field) based on completed orders and average rating:
   // isVerifiedBadge = completedOrderCount >= BADGE_MIN_COMPLETED_ORDERS
   //                    && averageRating >= BADGE_MIN_AVERAGE_RATING
 }
@@ -138,7 +167,7 @@ model PaymentProof {
   orderId String @unique
   order   Order  @relation(fields: [orderId], references: [id])
 
-  imageUrl    String
+  imageUrl    String // URL Cloudinary
   uploadedAt  DateTime  @default(now())
   confirmedAt DateTime?
 }

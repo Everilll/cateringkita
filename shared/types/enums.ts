@@ -1,6 +1,4 @@
 // shared/types/enums.ts
-// Harus sinkron persis dengan enum di backend/prisma/schema.prisma
-
 export enum Role {
   CUSTOMER = 'CUSTOMER',
   VENDOR = 'VENDOR',
@@ -26,4 +24,14 @@ export enum AccountStatus {
 export enum MenuCategory {
   MAKANAN = 'MAKANAN',
   MINUMAN = 'MINUMAN',
+}
+
+export enum AuthProvider {
+  EMAIL = 'EMAIL',
+  GOOGLE = 'GOOGLE',
+}
+
+export enum OtpPurpose {
+  EMAIL_VERIFICATION = 'EMAIL_VERIFICATION',
+  PASSWORD_RESET = 'PASSWORD_RESET',
 }
