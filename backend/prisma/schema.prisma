@@ -12,3 +12,147 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  CUSTOMER
+  VENDOR
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  WAITING_CONFIRMATION
+  PAID
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum AccountStatus {
+  ACTIVE
+  WARNED
+  FROZEN
+}
+
+enum MenuCategory {
+  MAKANAN
+  MINUMAN
+}
+
+model User {
+  id        String   @id @default(cuid())
+  role      Role
+  name      String
+  email     String   @unique
+  password  String
+  phone     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vendorProfile    VendorProfile?
+  ordersAsCustomer Order[]        @relation("CustomerOrders")
+  ratingsGiven     Rating[]       @relation("CustomerRatings")
+}
+
+model VendorProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  businessName String
+  area         String
+  waNumber     String
+  bannerPhoto  String?
+  profilePhoto String?
+  paymentInfo  String
+
+  totalUnpaidCommission Decimal       @default(0) @db.Decimal(12, 2)
+  accountStatus         AccountStatus @default(ACTIVE)
+  lastCommissionPaidAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  menuItems MenuItem[]
+  orders    Order[]    @relation("VendorOrders")
+  ratings   Rating[]   @relation("VendorRatings")
+
+  // computed di level aplikasi (bukan kolom DB):
+  // isVerifiedBadge = completedOrderCount >= BADGE_MIN_COMPLETED_ORDERS
+  //                    && averageRating >= BADGE_MIN_AVERAGE_RATING
+}
+
+model MenuItem {
+  id       String        @id @default(cuid())
+  vendorId String
+  vendor   VendorProfile @relation(fields: [vendorId], references: [id])
+
+  name        String
+  category    MenuCategory
+  price       Decimal      @db.Decimal(10, 2)
+  minOrderQty Int          @default(1)
+  isActive    Boolean      @default(true)
+  photo       String?
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems OrderItem[]
+}
+
+model Order {
+  id         String        @id @default(cuid())
+  customerId String
+  customer   User          @relation("CustomerOrders", fields: [customerId], references: [id])
+  vendorId   String
+  vendor     VendorProfile @relation("VendorOrders", fields: [vendorId], references: [id])
+
+  eventDate  DateTime
+  address    String
+  status     OrderStatus @default(PENDING)
+  totalPrice Decimal     @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items        OrderItem[]
+  paymentProof PaymentProof?
+  rating       Rating?
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+
+  quantity Int
+  subtotal Decimal @db.Decimal(12, 2)
+}
+
+model PaymentProof {
+  id      String @id @default(cuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  imageUrl    String
+  uploadedAt  DateTime  @default(now())
+  confirmedAt DateTime?
+}
+
+model Rating {
+  id         String        @id @default(cuid())
+  orderId    String        @unique
+  order      Order         @relation(fields: [orderId], references: [id])
+  customerId String
+  customer   User          @relation("CustomerRatings", fields: [customerId], references: [id])
+  vendorId   String
+  vendor     VendorProfile @relation("VendorRatings", fields: [vendorId], references: [id])
+
+  score     Int // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+}
