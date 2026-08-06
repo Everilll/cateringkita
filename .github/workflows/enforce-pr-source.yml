@@ -1,0 +1,17 @@
+name: Enforce Main PR Source
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    branches:
+      - main
+
+jobs:
+  check-source-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if PR is coming from development
+        if: github.head_ref != 'development'
+        run: |
+          echo "::error::PR ke branch main HANYA boleh dibuat dari branch 'development'!"
+          exit 1
