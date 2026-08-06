@@ -14,6 +14,7 @@ export interface MenuItemSummary {
 export interface VendorSummary {
   id: string;
   businessName: string;
+  city: string;
   area: string;
   bannerPhoto: string | null;
   profilePhoto: string | null;
@@ -38,6 +39,7 @@ export interface VendorMe extends VendorDetail {
 // Request POST /vendors/me, PATCH /vendors/me
 export interface UpsertVendorProfileDto {
   businessName: string;
+  city: string;
   area: string;
   waNumber: string;
   paymentInfo: string;
@@ -45,6 +47,7 @@ export interface UpsertVendorProfileDto {
 
 // Query params GET /vendors
 export interface VendorListQuery {
+  city?: string;
   area?: string;
   category?: MenuCategory;
   minPrice?: number;
