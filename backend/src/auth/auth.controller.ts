@@ -5,6 +5,7 @@ import {
   Get,
   Patch,
   Post,
+  Res,
   Redirect,
   UseGuards,
   HttpCode,
@@ -18,6 +19,7 @@ import {
   ApiOkResponse,
 } from '@nestjs/swagger';
 
+import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp/otp.service';
@@ -40,9 +42,8 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly otpService: OtpService,
     private readonly config: ConfigService,
-  ) {}
+  ) { }
 
-  // ── POST /auth/register ──────────────────────────────────────────
   @Post('register')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Daftar akun baru (CUSTOMER atau VENDOR)' })
@@ -61,7 +62,6 @@ export class AuthController {
     );
   }
 
-  // ── POST /auth/verify-otp ────────────────────────────────────────
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verifikasi OTP (email verification / password reset)' })
@@ -71,7 +71,6 @@ export class AuthController {
     return new MessageResponse(null, 'Kode OTP berhasil diverifikasi');
   }
 
-  // ── POST /auth/resend-otp ────────────────────────────────────────
   @Post('resend-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Kirim ulang OTP (rate-limited)' })
@@ -81,7 +80,6 @@ export class AuthController {
     return new MessageResponse(null, 'Kode OTP telah dikirim ke email kamu');
   }
 
-  // ── POST /auth/login ─────────────────────────────────────────────
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login email + password' })
@@ -92,29 +90,36 @@ export class AuthController {
     return new RawResponse({ token });
   }
 
-  // ── GET /auth/google ─────────────────────────────────────────────
   @Get('google')
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Redirect ke Google OAuth consent screen' })
   @ApiResponse({ status: 302, description: 'Redirect ke Google.' })
-  googleLogin() {}
+  googleLogin() { }
 
-  // ── GET /auth/google/callback ────────────────────────────────────
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  @Redirect()
   @ApiOperation({ summary: 'Callback Google OAuth' })
-  @ApiResponse({ status: 302, description: 'Redirect ke frontend dengan token di query string.' })
-  async googleCallback(@CurrentUser() profile: GoogleProfilePayload) {
+  @ApiOkResponse({ description: 'Login Google berhasil.' })
+  async googleCallback(
+    @CurrentUser() profile: GoogleProfilePayload,
+    @Res() res: Response,
+  ) {
     const result = await this.authService.handleGoogleLogin(profile);
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    return {
-      url: `${frontendUrl}/auth/google/callback?token=${result.token}`,
-      statusCode: 302,
-    };
+    const frontendUrl = this.config.get<string>('FRONTEND_URL');
+
+    const isFrontendReady = this.config.get<boolean>('FRONTEND_READY', false);
+    if (isFrontendReady && frontendUrl) {
+      return res.redirect(`${frontendUrl}/auth/google/callback?token=${result.token}`);
+    }
+
+    return res.status(HttpStatus.OK).json({
+      statusCode: 200,
+      message: 'Google login successful',
+      data: result,
+      timestamp: new Date().toISOString(),
+    });
   }
 
-  // ── POST /auth/forgot-password ───────────────────────────────────
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Kirim OTP untuk reset password (hanya akun EMAIL)' })
@@ -127,7 +132,6 @@ export class AuthController {
     );
   }
 
-  // ── POST /auth/reset-password ────────────────────────────────────
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verifikasi OTP + set password baru' })
@@ -137,7 +141,6 @@ export class AuthController {
     return new MessageResponse(null, 'Password berhasil diubah, silakan login kembali');
   }
 
-  // ── GET /auth/me ─────────────────────────────────────────────────
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -147,7 +150,6 @@ export class AuthController {
     return this.authService.getMe(user.sub);
   }
 
-  // ── PATCH /auth/me/city ──────────────────────────────────────────
   @Patch('me/city')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
